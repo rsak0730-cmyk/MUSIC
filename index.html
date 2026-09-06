@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncBeat - Synced Audio Room</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --text-main: #ffffff;
+            --glass-bg: rgba(19, 24, 45, 0.85);
+            --cyan: #00f2fe;
+            --purple: #7c3aed;
+            --purple-light: #c4b5fd;
+            --globe-border: #00f2fe;
+            --globe-ring-1: #00f2fe;
+            --globe-ring-2: #a78bfa;
+            --globe-core-inner: rgba(0,242,254,0.3);
+            --globe-core-mid: rgba(124,58,237,0.5);
+            --globe-shadow: rgba(0, 242, 254, 0.6);
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 15px; padding-bottom: 120px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+        .container { width: 100%; max-width: 420px; }
+        
+        button, .action-btn-custom, .code-action-btn, .close-session-btn, .control-btn, .play-pause-lg { position: relative; overflow: hidden; transition: transform 0.15s ease; cursor: pointer; }
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .logo-area { display: flex; align-items: center; gap: 8px; }
+        .logo-area h1 { margin: 0; font-size: 22px; font-weight: 800; color: #a78bfa; text-shadow: 0 0 10px rgba(167, 139, 250, 0.5); }
+        .room-badge { background: rgba(124, 58, 237, 0.3); color: var(--purple-light); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(167, 139, 250, 0.4); }
+        
+        .card { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid rgba(124, 58, 237, 0.35); border-radius: 24px; padding: 16px; margin-bottom: 14px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08); }
+        
+        .hosting-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .hosting-active-tag { display: flex; align-items: center; font-size: 12px; font-weight: 800; color: var(--cyan); text-shadow: 0 0 8px rgba(0, 255, 204, 0.6); }
+        .dot { height: 8px; width: 8px; background-color: var(--cyan); border-radius: 50%; display: inline-block; margin-right: 6px; box-shadow: 0 0 8px var(--cyan); }
+        .code-box { background: rgba(11, 15, 25, 0.9); border: 2px dashed rgba(0, 242, 254, 0.4); border-radius: 16px; padding: 14px; text-align: center; font-size: 24px; font-weight: 900; color: var(--cyan); letter-spacing: 3px; margin-bottom: 14px; text-shadow: 0 0 12px rgba(0, 242, 254, 0.6); }
+        .code-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .code-action-btn { background: rgba(124, 58, 237, 0.25); border: 1px solid rgba(167, 139, 250, 0.4); color: #e2e8f0; font-weight: 700; font-size: 12px; padding: 12px 6px; border-radius: 14px; }
+        .close-session-btn { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; width: 100%; padding: 14px; border-radius: 16px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+        
+        .card.black-player-box { background-color: #0b0f19; background-size: cover; background-position: center; border: 1px solid rgba(0, 242, 254, 0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 15px rgba(0, 242, 254, 0.2); position: relative; transition: background-image 0.5s ease; overflow: hidden; }
+        .card.black-player-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 15, 25, 0.82); backdrop-filter: blur(8px); z-index: 1; }
+        .card.black-player-box > * { position: relative; z-index: 2; }
+        .card-header-sm { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #a78bfa; margin-bottom: 10px; letter-spacing: 1px; }
+        
+        .player-info { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+        .album-art { width: 52px; height: 52px; background: rgba(124, 58, 237, 0.3); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--purple-light); flex-shrink: 0; }
+        .track-title { font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 3px; word-break: break-all; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .track-artist { font-size: 11px; color: #94a3b8; }
+        
+        .progress-track { background: rgba(255,255,255,0.15); height: 8px; border-radius: 4px; cursor: pointer; margin-bottom: 6px; position: relative; touch-action: none; }
+        .progress-fill { background: linear-gradient(90deg, var(--cyan), var(--purple)); width: 0%; height: 100%; border-radius: 4px; pointer-events: none; box-shadow: 0 0 10px rgba(0, 242, 254, 0.6); }
+        .progress-thumb { position: absolute; right: -6px; top: -4px; width: 16px; height: 16px; background: var(--text-main); border: 2px solid var(--cyan); border-radius: 50%; box-shadow: 0 0 8px rgba(0,242,254,0.8); pointer-events: none; }
+        .time-info { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-bottom: 14px; font-weight: 600; }
+        
+        .player-controls-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 0 6px; }
+        .play-pause-lg { background: linear-gradient(135deg, var(--cyan), var(--purple)); color: #0b0f19; width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; border: none; box-shadow: 0 0 20px rgba(0, 242, 254, 0.5); }
+        
+        .audio-globe-container { width: 72px; height: 72px; border-radius: 50%; background: radial-gradient(circle, var(--globe-core-inner) 0%, var(--globe-core-mid) 70%, rgba(11,15,25,0.95) 100%); position: relative; display: flex; align-items: center; justify-content: center; border: 3px solid var(--globe-border); box-shadow: 0 0 20px var(--globe-shadow); transition: border-color 0.4s ease, box-shadow 0.4s ease; }
+        .globe-low-bass-ring { position: absolute; width: 104%; height: 104%; border: 2px dashed var(--globe-ring-1); border-radius: 50%; }
+        .globe-mid-bass-ring { position: absolute; width: 86%; height: 86%; border: 1.8px solid var(--globe-ring-2); border-radius: 50%; }
+        .globe-high-bass-ring { position: absolute; width: 68%; height: 68%; border: 2px dotted #ffffff; border-radius: 50%; }
+        .globe-mesh-core { width: 26px; height: 26px; background: linear-gradient(135deg, var(--globe-border), var(--globe-ring-2)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #0b0f19; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .globe-mesh-core::after { content: 'S.B'; }
+
+        .inline-volume { display: flex; align-items: center; gap: 10px; background: var(--glass-bg); padding: 12px 16px; border-radius: 18px; border: 1px solid rgba(124, 58, 237, 0.35); margin-bottom: 14px; }
+        .inline-volume input[type="range"] { flex: 1; accent-color: var(--cyan); cursor: pointer; }
+        .volume-pct { font-size: 12px; font-weight: 700; color: var(--cyan); width: 35px; text-align: right; }
+
+        .search-input { width: 100%; background: var(--text-main); border: 1px solid var(--cyan); padding: 12px 14px; border-radius: 14px; font-size: 13px; outline: none; box-sizing: border-box; color: #000; font-weight: 600; text-align: left; }
+        .action-btn-custom { background: linear-gradient(135deg, var(--cyan), var(--purple)); color: #0b0f19; border: none; padding: 12px 18px; border-radius: 14px; font-weight: 800; font-size: 12px; white-space: nowrap; box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
+        
+        .peer-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .peer-item:last-child { border-bottom: none; }
+        .peer-info { display: flex; align-items: center; gap: 10px; }
+        .peer-icon { width: 34px; height: 34px; background: rgba(124, 58, 237, 0.3); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--purple-light); }
+        .peer-name { font-size: 13px; font-weight: 700; }
+        .peer-meta { font-size: 10px; color: #94a3b8; }
+        .sync-tag { background: rgba(0, 255, 204, 0.2); color: var(--cyan); border: 1px solid rgba(0, 255, 204, 0.4); font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 8px; }
+        
+        .code-input { width: 100%; background: rgba(11, 15, 25, 0.8); border: 1px solid rgba(124, 58, 237, 0.5); padding: 12px 16px; border-radius: 14px; font-size: 15px; font-weight: 700; color: var(--text-main); box-sizing: border-box; outline: none; text-align: center; }
+        .btn-purple { background: linear-gradient(135deg, var(--purple), #4c1d95); color: white; border: 1px solid rgba(167, 139, 250, 0.5); width: 100%; padding: 14px; border-radius: 14px; font-size: 14px; font-weight: 800; box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); }
+
+        /* Popups and Modals */
+        #roomPopupContainer { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); z-index: 9999999; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; width: 90%; max-width: 400px; }
+        .room-popup-card { background: rgba(11, 15, 25, 0.95); backdrop-filter: blur(10px); border: 1px solid var(--cyan); border-left: 4px solid var(--cyan); color: white; padding: 12px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; box-sizing: border-box; animation: popupSlideDown 0.4s forwards; }
+        @keyframes popupSlideDown { 0% { transform: translateY(-40px) scale(0.9); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        .popup-sender { font-size: 11px; font-weight: 900; color: var(--cyan); margin-bottom: 4px; text-transform: uppercase; }
+        .popup-content { font-size: 13px; font-weight: 700; word-break: break-word; }
+
+        #liveChatFloatingContainer { position: fixed; bottom: 25px; right: 20px; z-index: 99999; display: flex; flex-direction: column; align-items: flex-end; }
+        .live-chat-launcher { background: linear-gradient(135deg, var(--cyan), var(--purple)); color: #0b0f19; border: none; border-radius: 30px; padding: 12px 22px; font-size: 13px; font-weight: 900; cursor: pointer; }
+        .floating-chat-window { width: 320px; background: rgba(19, 24, 45, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(0, 242, 254, 0.5); border-radius: 22px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 10px; }
+        .floating-chat-header { background: linear-gradient(135deg, var(--purple), var(--cyan)); color: #0b0f19; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 900; }
+        .floating-minimize-btn { background: rgba(0, 0, 0, 0.2); border: none; color: #0b0f19; border-radius: 8px; width: 26px; height: 26px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="roomPopupContainer"></div>
+
+    <div class="container">
+        <div id="mainLandingView">
+            <div class="header">
+                <div class="logo-area">
+                    <h1>SyncBeat</h1>
+                </div>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 11px; color: var(--purple-light); font-weight: 800; margin-bottom: 6px; letter-spacing: 1px;">👤 YOUR PROFILE</div>
+                <div style="font-size: 20px; font-weight: 900; color: white; margin-bottom: 12px; text-shadow: 0 0 8px rgba(255,255,255,0.3);" id="displayNameText">User</div>
+                <input type="text" id="userNameInput" class="search-input" placeholder="Change Your Name..." style="margin-bottom: 10px; text-align: center;">
+                <button class="btn-purple" onclick="saveNameOnly()" style="padding: 10px; font-size: 13px;">💾 Save Name</button>
+            </div>
+
+            <div class="card" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="startHostingSession()">
+                <div>
+                    <div style="font-weight:800; font-size:14px; color:var(--purple-light);">Create & Host Room</div>
+                    <div style="font-size:10px; color:#94a3b8;">Host controls the music</div>
+                </div>
+                <div style="color:var(--purple-light); font-size:24px; font-weight:bold;">→</div>
+            </div>
+
+            <div class="card" id="connectMemberCard">
+                <div class="card-header-sm"><span>JOIN AS MEMBER</span></div>
+                <div style="margin: 10px 0;">
+                    <input type="text" id="roomCodeInput" class="code-input" placeholder="Room Code (e.g. SYNC-4B9X)" maxlength="10">
+                </div>
+                <button class="btn-purple" onclick="connectToRoom()">⚡ CONNECT</button>
+            </div>
+        </div>
+
+        <div id="hostSessionView" class="hidden">
+            <div class="header">
+                <button class="back-btn" onclick="closeRoomAndReturnHome()">←</button>
+                <div>
+                    <div style="font-size: 15px; font-weight: 800; color:var(--purple-light);" id="sessionHeaderTitle">Room Session</div>
+                    <div style="font-size: 10px; color: #94a3b8;" id="sessionSubtitle">Host: You</div>
+                </div>
+            </div>
+
+            <div class="card hosting-banner">
+                <div class="hosting-top-row">
+                    <div class="hosting-active-tag"><span class="dot"></span> <span>ACTIVE</span></div>
+                    <div style="font-size: 11px; font-weight: 800; color: #a78bfa;" id="roleIndicatorBadge">Role: Host</div>
+                </div>
+                <div class="code-box" id="displayRoomCode">SYNC-0000</div>
+            </div>
+
+            <div class="card" id="hostOnlyControls">
+                <div class="card-header-sm"><span>✨ YOUTUBE PLAY & SEARCH</span></div>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <input type="text" class="search-input" id="songSearchInput" placeholder="Paste URL or type a song name..." onkeydown="if(event.key==='Enter') executeSearchOrPlay()">
+                    <button class="action-btn-custom" onclick="executeSearchOrPlay()">Play</button>
+                </div>
+            </div>
+
+            <div class="inline-volume">
+                <span>🔊</span>
+                <input type="range" id="sessionMasterVol" min="0" max="100" value="100" oninput="updateRealTimeMasterVol(this.value)">
+                <span class="volume-pct" id="sessionVolPct">100%</span>
+            </div>
+
+            <div class="card black-player-box" id="activePlayerCardBox">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div class="card-header-sm" style="margin-bottom: 0;"><span>● SYNCED AUDIO PLAYER</span></div>
+                </div>
+                <div class="player-info">
+                    <div class="album-art" id="sessionArt">🎧</div>
+                    <div style="overflow: hidden; flex: 1;">
+                        <div class="track-title" id="sessionTitle">No Track Playing</div>
+                        <div class="track-artist" id="sessionArtist">YouTube Audio Stream</div>
+                    </div>
+                </div>
+                <div class="progress-track" id="progressTrackScrubber" onclick="seekTrackClick(event)" onmousedown="startScrubbing(event)" ontouchstart="startScrubbing(event)">
+                    <div class="progress-fill" id="sessionFill"><div class="progress-thumb"></div></div>
+                </div>
+                <div class="time-info">
+                    <span id="sessionCurrentTime">0:00</span>
+                    <span id="sessionTotalDuration">0:00</span>
+                </div>
+                <div class="player-controls-row">
+                    <div class="audio-globe-container" id="audioBeatGlobe">
+                        <div class="globe-low-bass-ring"></div>
+                        <div class="globe-mid-bass-ring"></div>
+                        <div class="globe-high-bass-ring"></div>
+                        <div class="globe-mesh-core"></div>
+                    </div>
+                    <button class="play-pause-lg" id="sessionPlayBtn" onclick="togglePlaySession()">▶</button>
+                    <div style="width:24px;"></div>
+                </div>
+                
+                <div id="ytEmbedWrapper" style="position: absolute; top:-9999px; left:-9999px; opacity:0; pointer-events:none;">
+                    <div id="ytPlayerDiv"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-sm"><span>CONNECTED DEVICES</span></div>
+                <div id="peerListContainer">
+                    <div style="font-size: 11px; color: #94a3b8; text-align: center; font-style: italic;">Loading peers...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="liveChatFloatingContainer" class="hidden">
+        <div id="liveChatWindow" class="floating-chat-window hidden">
+            <div class="floating-chat-header">
+                <span>💬 ROOM LIVE CHAT</span>
+                <button class="floating-minimize-btn" onclick="toggleLiveChatWindow()">−</button>
+            </div>
+            <div style="padding: 12px;">
+                <div id="chatMessagesContainer" style="height: 160px; overflow-y: auto; background: rgba(11,15,25,0.8); border: 1px solid rgba(124,58,237,0.4); border-radius: 12px; padding: 8px; margin-bottom: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="chatInput" class="search-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                    <button class="action-btn-custom" onclick="sendChatMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+        <button id="liveChatLauncherBtn" class="live-chat-launcher" onclick="toggleLiveChatWindow()">💬 LIVE CHAT</button>
+    </div>
+
+    <!-- Pre-warm Autoplay Overlay -->
+    <div id="interactionOverlay" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(11,15,25,0.98); z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
+        <h2 style="margin-bottom: 5px; font-size:24px; color:#00f2fe;">🎧 Welcome to SyncBeat!</h2>
+        <p style="margin-bottom: 25px; color:#94a3b8; font-size:13px;">Tap below to unlock Live Audio Sync on this device.</p>
+        <button class="btn-purple" style="width: 240px; font-size: 16px; padding: 16px; border-radius: 30px;" onclick="unlockMediaContext()">🟢 Connect Audio Stream</button>
+    </div>
+
+    <script>
+        window.isYtApiReady = false;
+        window.onYouTubeIframeAPIReady = function() { window.isYtApiReady = true; };
+        (function() {
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            document.head.appendChild(tag);
+        })();
+
+        // ENSURE YOU USE YOUR ACTUAL BACKEND URL
+        const BACKEND_WS = 'wss://syncbeat-backend2.onrender.com';
+        
+        let ws = null;
+        let isHosting = false;
+        let currentRoomCode = "";
+        let currentUserName = "User";
+        let currentAccountId = "";
+        let isSessionPlaying = false;
+        let progressInterval = null;
+        let syncBroadcastInterval = null;
+        let ytPlayer = null;
+        let isScrubbing = false;
+        let pendingYtId = null;
+        let pendingYtTime = 0;
+        let isAudioUnlocked = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            let pid = localStorage.getItem('sb_id');
+            if (!pid) {
+                pid = 'SYNC-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                localStorage.setItem('sb_id', pid);
+            }
+            currentAccountId = pid;
+            currentUserName = localStorage.getItem('sb_name') || 'User';
+            document.getElementById('userNameInput').value = currentUserName;
+            document.getElementById('displayNameText').textContent = currentUserName;
+        });
+
+        function saveNameOnly() {
+            const inputVal = document.getElementById('userNameInput').value.trim();
+            if (inputVal) {
+                currentUserName = inputVal;
+                localStorage.setItem('sb_name', currentUserName);
+                document.getElementById('displayNameText').textContent = currentUserName;
+                showRoomPopup("System", "Profile Name Saved!");
+            }
+        }
+
+        function showRoomPopup(senderName, content) {
+            const container = document.getElementById('roomPopupContainer');
+            if (!container) return;
+            const card = document.createElement('div');
+            card.className = 'room-popup-card';
+            card.innerHTML = `<div class="popup-sender">💬 ${escapeHtml(senderName)}</div><div class="popup-content">${escapeHtml(content)}</div>`;
+            container.appendChild(card);
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(-40px)';
+                card.style.transition = 'all 0.4s ease';
+                setTimeout(() => card.remove(), 400);
+            }, 4000);
+        }
+
+        function toggleLiveChatWindow() {
+            const w = document.getElementById('liveChatWindow');
+            const l = document.getElementById('liveChatLauncherBtn');
+            w.classList.toggle('hidden');
+            l.classList.toggle('hidden');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'CHAT_MESSAGE', message: msg, name: currentUserName }));
+                appendChatMessage("You", msg);
+                showRoomPopup("You", msg);
+            }
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, message) {
+            const container = document.getElementById('chatMessagesContainer');
+            const div = document.createElement('div');
+            div.style.wordBreak = 'break-word';
+            div.innerHTML = `<b style="color: var(--cyan);">${escapeHtml(sender)}:</b> ${escapeHtml(message)}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) { return text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
+
+        function extractYouTubeId(urlOrQuery) {
+            const match = urlOrQuery.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function executeSearchOrPlay() {
+            if (!isHosting) return;
+            const query = document.getElementById('songSearchInput').value.trim();
+            if (!query) return;
+
+            const ytId = extractYouTubeId(query);
+            if (ytId) {
+                playYouTubeStream("YouTube Audio", ytId, 0);
+                document.getElementById('songSearchInput').value = '';
+                return;
+            }
+
+            document.getElementById('sessionTitle').textContent = "Searching...";
+            document.getElementById('sessionArtist').textContent = "Please wait...";
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'SEARCH_YOUTUBE', query: query }));
+            }
+        }
+
+        function updateGlobeColorFromThumbnail(ytId) {
+            const imgUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+            const box = document.getElementById('activePlayerCardBox');
+            if (box) box.style.backgroundImage = `url('${imgUrl}')`;
+
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = imgUrl;
+            img.onload = () => {
+                const cvs = document.createElement('canvas');
+                const ctx = cvs.getContext('2d');
+                cvs.width = 30; cvs.height = 30;
+                ctx.drawImage(img, 0, 0, 30, 30);
+                try {
+                    const p = ctx.getImageData(5, 5, 20, 20).data;
+                    let r=0, g=0, b=0, c=0;
+                    for (let i = 0; i < p.length; i += 16) { r+=p[i]; g+=p[i+1]; b+=p[i+2]; c++; }
+                    r = Math.floor(r/c); g = Math.floor(g/c); b = Math.floor(b/c);
+                    const globe = document.getElementById('audioBeatGlobe');
+                    if (globe) {
+                        globe.style.setProperty('--globe-border', `rgb(${r},${g},${b})`);
+                        globe.style.setProperty('--globe-ring-1', `rgb(${Math.min(255,r+60)},${Math.min(255,g+60)},${Math.min(255,b+60)})`);
+                        globe.style.setProperty('--globe-ring-2', `rgb(${Math.min(255,r+60)},${Math.min(255,g+60)},${Math.min(255,b+60)})`);
+                        globe.style.setProperty('--globe-core-inner', `rgba(${r},${g},${b},0.4)`);
+                        globe.style.setProperty('--globe-shadow', `rgb(${r},${g},${b})`);
+                    }
+                } catch(e) {}
+            };
+        }
+
+        // Mobile Fix: Creates the player instantly without a dummy video
+        function unlockMediaContext() {
+            document.getElementById('interactionOverlay').classList.add('hidden');
+            isAudioUnlocked = true;
+            
+            if (!ytPlayer && window.YT && YT.Player) {
+                ytPlayer = new YT.Player('ytPlayerDiv', {
+                    height: '1', width: '1',
+                    playerVars: { 'autoplay': 1, 'controls': 0, 'playsinline': 1, 'enablejsapi': 1 },
+                    events: {
+                        'onReady': (e) => { 
+                            e.target.unMute();
+                            if (pendingYtId) {
+                                e.target.loadVideoById({ 'videoId': pendingYtId, 'startSeconds': pendingYtTime });
+                                e.target.playVideo();
+                                pendingYtId = null;
+                            }
+                        },
+                        'onStateChange': (e) => {
+                            if (e.data === YT.PlayerState.PLAYING) updatePlayPauseUI(true);
+                            if (e.data === YT.PlayerState.PAUSED) updatePlayPauseUI(false);
+                        }
+                    }
+                });
+            } else if (ytPlayer) {
+                ytPlayer.unMute();
+                if (pendingYtId) {
+                    ytPlayer.loadVideoById({ 'videoId': pendingYtId, 'startSeconds': pendingYtTime });
+                    ytPlayer.playVideo();
+                    pendingYtId = null;
+                }
+            }
+            showRoomPopup("System", "Audio Stream Ready!");
+        }
+
+        function playYouTubeStream(title, ytId, startTime = 0) {
+            document.getElementById('sessionTitle').textContent = title;
+            updatePlayPauseUI(true);
+            updateGlobeColorFromThumbnail(ytId);
+            
+            // If user hasn't clicked overlay yet, store it for when they do
+            if (!isAudioUnlocked) {
+                pendingYtId = ytId;
+                pendingYtTime = Math.floor(startTime);
+                return;
+            }
+
+            if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+                ytPlayer.unMute();
+                ytPlayer.setVolume(document.getElementById('sessionMasterVol').value || 100);
+                ytPlayer.loadVideoById({ 'videoId': ytId, 'startSeconds': Math.floor(startTime) });
+                ytPlayer.playVideo();
+            } else if (!ytPlayer && window.YT && YT.Player) {
+                ytPlayer = new YT.Player('ytPlayerDiv', {
+                    height: '1', width: '1', videoId: ytId,
+                    playerVars: { 'autoplay': 1, 'controls': 0, 'start': Math.floor(startTime), 'playsinline': 1, 'enablejsapi': 1 },
+                    events: {
+                        'onReady': (e) => { 
+                            e.target.unMute(); 
+                            e.target.setVolume(document.getElementById('sessionMasterVol').value || 100);
+                            e.target.playVideo(); 
+                        },
+                        'onStateChange': (e) => {
+                            if (e.data === YT.PlayerState.PLAYING) updatePlayPauseUI(true);
+                            if (e.data === YT.PlayerState.PAUSED) updatePlayPauseUI(false);
+                        }
+                    }
+                });
+            }
+            
+            startProgressTracker();
+            if (isHosting && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'PLAY_YOUTUBE', title: title, ytId: ytId, currentTime: startTime }));
+            }
+        }
+
+        function updatePlayPauseUI(isPlaying) {
+            isSessionPlaying = isPlaying;
+            document.getElementById('sessionPlayBtn').textContent = isPlaying ? "⏸" : "▶";
+        }
+
+        function getClientX(e) { return e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX; }
+
+        function finalizeSeek(clientX) {
+            if (!isHosting || !ytPlayer || typeof ytPlayer.getDuration !== 'function') return;
+            const track = document.getElementById('progressTrackScrubber');
+            if (!track) return;
+            
+            const rect = track.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const duration = ytPlayer.getDuration();
+            
+            if (duration > 0) {
+                const newTime = pct * duration;
+                ytPlayer.seekTo(newTime, true);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'CONTROL', action: 'seek', time: newTime }));
+                }
+            }
+        }
+
+        function seekTrackClick(event) { if (!isHosting || isScrubbing) return; finalizeSeek(getClientX(event)); }
+
+        function startScrubbing(event) {
+            if (!isHosting) return;
+            isScrubbing = true;
+            const track = document.getElementById('progressTrackScrubber');
+            const rect = track.getBoundingClientRect();
+            
+            const initialX = getClientX(event);
+            const pct = Math.max(0, Math.min(1, (initialX - rect.left) / rect.width));
+            document.getElementById('sessionFill').style.width = (pct * 100) + '%';
+
+            const onMove = (e) => {
+                const currentPct = Math.max(0, Math.min(1, (getClientX(e) - rect.left) / rect.width));
+                document.getElementById('sessionFill').style.width = (currentPct * 100) + '%';
+            };
+            const onEnd = (e) => {
+                isScrubbing = false;
+                window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onEnd);
+                window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onEnd);
+                finalizeSeek(getClientX(e));
+            };
+            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchmove', onMove, {passive: false}); window.addEventListener('touchend', onEnd);
+        }
+
+        function startProgressTracker() {
+            clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (isScrubbing || !ytPlayer || typeof ytPlayer.getCurrentTime !== 'function') return;
+                try {
+                    const current = ytPlayer.getCurrentTime();
+                    const total = ytPlayer.getDuration();
+                    if (total > 0) {
+                        document.getElementById('sessionFill').style.width = ((current / total) * 100) + '%';
+                        document.getElementById('sessionCurrentTime').textContent = formatTime(current);
+                        document.getElementById('sessionTotalDuration').textContent = formatTime(total);
+                    }
+                } catch(e) {}
+            }, 250);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function togglePlaySession() {
+            if (!isHosting || !ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+            try {
+                const state = ytPlayer.getPlayerState();
+                if (state === 1 || state === 3) {
+                    ytPlayer.pauseVideo();
+                    updatePlayPauseUI(false);
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'CONTROL', action: 'pause', time: ytPlayer.getCurrentTime() }));
+                } else {
+                    ytPlayer.playVideo();
+                    updatePlayPauseUI(true);
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'CONTROL', action: 'play', time: ytPlayer.getCurrentTime() }));
+                }
+            } catch(e) {}
+        }
+
+        function updateRealTimeMasterVol(val) {
+            if (!isHosting) return;
+            document.getElementById('sessionVolPct').textContent = val + "%";
+            if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(val));
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'VOLUME', volume: val }));
+        }
+
+        function applyRoleUI() {
+            document.getElementById('hostOnlyControls').classList.toggle('hidden', !isHosting);
+            document.getElementById('sessionPlayBtn').disabled = !isHosting;
+            document.getElementById('sessionMasterVol').disabled = !isHosting;
+            document.getElementById('roleIndicatorBadge').textContent = `Role: ${isHosting ? 'Host' : 'Member'}`;
+        }
+
+        // Fixed Peer List Updating Logic
+        function handlePeerListUpdate(peers) {
+            const container = document.getElementById('peerListContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (!peers || peers.length === 0) {
+                container.innerHTML = `<div style="font-size: 11px; color: #94a3b8; text-align: center;">No peers connected</div>`;
+                return;
+            }
+
+            peers.forEach(peer => {
+                const div = document.createElement('div');
+                div.className = 'peer-item';
+                div.innerHTML = `
+                    <div class="peer-info">
+                        <div class="peer-icon">👤</div>
+                        <div>
+                            <div class="peer-name">${escapeHtml(peer.name)}</div>
+                            <div class="peer-meta">ID: ${escapeHtml(peer.accountId)}</div>
+                        </div>
+                    </div>
+                    <span class="sync-tag">${peer.role}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function connectWebSocket(onSuccess) {
+            if (ws && ws.readyState === WebSocket.OPEN) { if (onSuccess) onSuccess(); return; }
+            ws = new WebSocket(BACKEND_WS);
+            ws.onopen = () => { if (onSuccess) onSuccess(); };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'SEARCH_RESULTS') {
+                    if (data.results && data.results.length > 0) {
+                        const topResult = data.results[0]; 
+                        playYouTubeStream(topResult.title, topResult.videoId, 0);
+                        document.getElementById('songSearchInput').value = '';
+                        showRoomPopup("System", `Playing: ${topResult.title}`);
+                    } else {
+                        document.getElementById('sessionTitle').textContent = "Search Failed";
+                        document.getElementById('sessionArtist').textContent = "No match found.";
+                        showRoomPopup("System", "No songs found. Try a different query.");
+                    }
+                } 
+                else if (data.type === 'ROOM_HOSTED_SUCCESS' || data.type === 'ROOM_JOIN_SUCCESS') {
+                    if (data.type === 'ROOM_JOIN_SUCCESS') {
+                        isHosting = false; currentRoomCode = data.code;
+                    }
+                    document.getElementById('displayRoomCode').textContent = currentRoomCode;
+                    document.getElementById('sessionSubtitle').textContent = isHosting ? "Host: You" : `Member: ${currentUserName}`;
+                    applyRoleUI();
+                    
+                    document.getElementById('mainLandingView').classList.add('hidden');
+                    document.getElementById('hostSessionView').classList.remove('hidden');
+                    document.getElementById('liveChatFloatingContainer').classList.remove('hidden');
+                    document.getElementById('interactionOverlay').classList.remove('hidden');
+                    
+                    if (isHosting) {
+                        clearInterval(syncBroadcastInterval);
+                        syncBroadcastInterval = setInterval(() => {
+                            if (isSessionPlaying && ytPlayer && typeof ytPlayer.getCurrentTime === 'function' && ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: 'SYNC_TIME', time: ytPlayer.getCurrentTime() }));
+                            }
+                        }, 1000);
+                    }
+                } else if (data.type === 'PEER_LIST') {
+                    handlePeerListUpdate(data.peers);
+                } else if (data.type === 'ROOM_CLOSED') {
+                    closeRoomAndReturnHome();
+                } else if (data.type === 'PLAY_YOUTUBE') {
+                    playYouTubeStream(data.title, data.ytId, data.currentTime || 0);
+                } else if (data.type === 'CHAT_MESSAGE') {
+                    appendChatMessage(data.name, data.message);
+                    showRoomPopup(data.name, data.message);
+                } else if (!isHosting) {
+                    if (data.type === 'CONTROL') {
+                        if (ytPlayer && typeof ytPlayer.seekTo === 'function' && typeof data.time === 'number') ytPlayer.seekTo(data.time, true);
+                        if (data.action === 'play' && ytPlayer && typeof ytPlayer.playVideo === 'function') ytPlayer.playVideo();
+                        if (data.action === 'pause' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+                    } else if (data.type === 'SYNC_TIME') {
+                        if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function' && typeof ytPlayer.seekTo === 'function') {
+                            if (Math.abs(ytPlayer.getCurrentTime() - data.time) > 0.6) ytPlayer.seekTo(data.time, true);
+                        }
+                    } else if (data.type === 'VOLUME') {
+                        document.getElementById('sessionMasterVol').value = data.volume;
+                        document.getElementById('sessionVolPct').textContent = data.volume + "%";
+                        if (ytPlayer && typeof ytPlayer.setVolume === 'function') ytPlayer.setVolume(parseInt(data.volume));
+                    }
+                }
+            };
+        }
+
+        function startHostingSession() {
+            if(!currentUserName || currentUserName === "User") saveNameOnly();
+            currentRoomCode = 'SYNC-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            isHosting = true;
+            document.getElementById('interactionOverlay').classList.remove('hidden');
+            connectWebSocket(() => {
+                ws.send(JSON.stringify({ type: 'HOST_ROOM', code: currentRoomCode, name: currentUserName, accountId: currentAccountId }));
+            });
+        }
+
+        function connectToRoom() {
+            if(!currentUserName || currentUserName === "User") saveNameOnly();
+            const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+            if (code.length < 4) return;
+            currentRoomCode = code;
+            connectWebSocket(() => {
+                ws.send(JSON.stringify({ type: 'JOIN_ROOM', code: code, name: currentUserName, accountId: currentAccountId }));
+            });
+        }
+
+        function closeRoomAndReturnHome() {
+            if (isHosting && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ROOM_CLOSED' }));
+            if (ytPlayer && typeof ytPlayer.destroy === 'function') ytPlayer.destroy();
+            ytPlayer = null;
+            document.getElementById('ytEmbedWrapper').innerHTML = '<div id="ytPlayerDiv"></div>'; 
+
+            isHosting = false;
+            currentRoomCode = "";
+            if (ws) { ws.close(); ws = null; }
+            document.getElementById('hostSessionView').classList.add('hidden');
+            document.getElementById('mainLandingView').classList.remove('hidden');
+            document.getElementById('liveChatFloatingContainer').classList.add('hidden');
+            document.getElementById('liveChatWindow').classList.add('hidden');
+            document.getElementById('chatMessagesContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
+
