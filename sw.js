@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syncbeat-v24';
+const CACHE_NAME = 'syncbeat-v25';
 const ASSETS = [
   './',
   './index.html',
