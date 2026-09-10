@@ -1,0 +1,9 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.music_six_wheat.twa",
+        "sha256_cert_fingerprints": ["29:15:E3:B1:CC:EA:14:59:FF:54:EB:91:D2:5E:97:07:80:6A:5B:1C:86:DE:EE:C0:98:53:AA:5B:3E:8E:4C:63"]
+      }
+    }]
+
